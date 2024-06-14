@@ -7,7 +7,7 @@ const db = admin.firestore();
 const JWT_SECRET = process.env.JWT_SECRET;
 const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS);
 
-exports.registerHandler = async (request, h) => {
+const registerHandler = async (request, h) => {
   try {
     const { username, password } = request.payload;
     const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
@@ -16,14 +16,19 @@ exports.registerHandler = async (request, h) => {
     const userRef = db.collection('users').doc(userId);
     await userRef.set({ username, password: hashedPassword });
 
-    return h.response({ userId, username }).code(201);
+    return h.response({ 
+      userId, 
+      username 
+    }).code(201);
   } catch (error) {
     console.error('Error registering user:', error);
-    return h.response({ error: 'Failed to register user' }).code(500);
+    return h.response({ 
+      error: 'Failed to register user' 
+    }).code(500);
   }
 };
 
-exports.loginHandler = async (request, h) => {
+const loginHandler = async (request, h) => {
   try {
     const { username, password } = request.payload;
 
@@ -60,3 +65,16 @@ exports.loginHandler = async (request, h) => {
     return h.response({ error: 'Failed to login' }).code(500);
   }
 };
+
+const getArtist = (request, h) => {
+  const { artistName } = request.params;
+
+  const artist = db.collection('Artist')
+  
+}
+
+module.exports(
+  registerHandler,
+  loginHandler,
+  getArtist,
+)

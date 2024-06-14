@@ -1,5 +1,9 @@
 const Joi = require('@hapi/joi');
-const { registerHandler, loginHandler } = require('./handlers');
+const { 
+  registerHandler, 
+  loginHandler ,
+  getArtist,
+} = require('./handlers');
 
 const routes = [
   {
@@ -34,6 +38,11 @@ const routes = [
     handler: (request, h) => {
       return h.response({ message: 'You are authenticated' }).code(200);
     },
+  },
+  {
+    method: 'GET',
+    path: '/artists/{artistName}',
+    handler: getArtist,
   },
 ];
 

@@ -85,7 +85,7 @@ const getArtist = async (request, h) => {
 
 }
 
-const getHistory = async (request, h) => {
+const getHistory = async () => {
   try{
     const historycollection = db.collection('history');
     const snapshot = await historycollection.get();

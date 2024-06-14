@@ -85,8 +85,35 @@ const getArtist = async (request, h) => {
 
 }
 
+const getHistory = async (request, h) => {
+  try{
+    const historycollection = db.collection('history');
+    const snapshot = await historycollection.get();
+
+    if (snapshot.empty) {
+      return [];
+    }
+
+    const data = [];
+    snapshot.forEach((doc) => {
+      data.push({
+        id: doc.id,
+        history: doc.data(),
+      });
+    });
+
+    return data;
+
+    } catch (error) {
+    throw new InputError(
+      `Failed to fetch prediction history: ${error.message}`
+    );
+  }
+};
+
 module.exports(
   registerHandler,
   loginHandler,
   getArtist,
+  getHistory
 )

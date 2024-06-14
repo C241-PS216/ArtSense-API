@@ -66,11 +66,23 @@ const loginHandler = async (request, h) => {
   }
 };
 
-const getArtist = (request, h) => {
+const getArtist = async (request, h) => {
   const { artistName } = request.params;
 
-  const artist = db.collection('Artist')
-  
+  const collection = db.collection('Artists');
+  const querySnapshot = await collection.where('name', '==', artistName).get();
+
+  if (querySnapshot.empty) {
+    return h.response({ error: 'Artist not found' }).code(404);
+  }
+
+  const artistData = querySnapshot.docs[0].data();
+
+  return h.response(artistData).code(200);
+};
+
+{
+
 }
 
 module.exports(

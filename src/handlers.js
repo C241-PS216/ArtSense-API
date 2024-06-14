@@ -105,10 +105,10 @@ const getHistory = async (request, h) => {
     return data;
 
     } catch (error) {
-    throw new InputError(
-      `Failed to fetch prediction history: ${error.message}`
-    );
-  }
+      throw new InputError(
+        `Failed to fetch prediction history: ${error.message}`
+      );
+    }
 };
 
 module.exports(

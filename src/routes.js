@@ -1,15 +1,12 @@
 const Joi = require('@hapi/joi');
-const { 
-  registerHandler, 
-  loginHandler ,
-  getArtist,
-} = require('./handlers');
 
-const routes = [
+const handlers = require('./handler');
+
+const routes = (firestore) => [
   {
     method: 'POST',
     path: '/register',
-    handler: registerHandler,
+    handler: handlers.registerHandler(firestore),
     options: {
       validate: {
         payload: Joi.object({
@@ -22,7 +19,7 @@ const routes = [
   {
     method: 'POST',
     path: '/login',
-    handler: loginHandler,
+    handler: handlers.loginHandler(firestore),
     options: {
       validate: {
         payload: Joi.object({
@@ -42,7 +39,12 @@ const routes = [
   {
     method: 'GET',
     path: '/artists/{artistName}',
-    handler: getArtist,
+    handler: handlers.getArtist(firestore),
+  },
+  {
+    method: 'GET',
+    path: '/history',
+    handler: handlers.getHistory(firestore),
   },
 ];
 

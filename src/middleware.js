@@ -1,7 +1,4 @@
-const admin = require('firebase-admin');
-const db = admin.firestore();
-
-exports.validateToken = async (decoded, request, h) => {
+const validateToken = (firestore) => async (decoded, request, h) => {
   try {
     const token = request.state.token;
 
@@ -9,7 +6,7 @@ exports.validateToken = async (decoded, request, h) => {
       return { isValid: false };
     }
 
-    const usersRef = db.collection('users');
+    const usersRef = firestore.collection('users');
     const snapshot = await usersRef.where('token', '==', token).get();
 
     if (snapshot.empty) {
@@ -21,4 +18,8 @@ exports.validateToken = async (decoded, request, h) => {
     console.error('Error validating token:', error);
     return { isValid: false };
   }
+};
+
+module.exports = {
+  validateToken,
 };

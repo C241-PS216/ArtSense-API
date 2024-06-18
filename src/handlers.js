@@ -1,38 +1,31 @@
-const admin = require('firebase-admin');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { nanoid } = require('nanoid');
 
-const db = admin.firestore();
 const JWT_SECRET = process.env.JWT_SECRET;
 const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS);
 
-const registerHandler = async (request, h) => {
+const registerHandler = (firestore) => async (request, h) => {
   try {
     const { username, password } = request.payload;
     const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
     const userId = nanoid();
 
-    const userRef = db.collection('users').doc(userId);
+    const userRef = firestore.collection('users').doc(userId);
     await userRef.set({ username, password: hashedPassword });
 
-    return h.response({ 
-      userId, 
-      username 
-    }).code(201);
+    return h.response({ userId, username }).code(201);
   } catch (error) {
     console.error('Error registering user:', error);
-    return h.response({ 
-      error: 'Failed to register user' 
-    }).code(500);
+    return h.response({ error: 'Failed to register user' }).code(500);
   }
 };
 
-const loginHandler = async (request, h) => {
+const loginHandler = (firestore) => async (request, h) => {
   try {
     const { username, password } = request.payload;
 
-    const usersRef = db.collection('users');
+    const usersRef = firestore.collection('users');
     const snapshot = await usersRef.where('username', '==', username).get();
 
     if (snapshot.empty) {
@@ -66,10 +59,10 @@ const loginHandler = async (request, h) => {
   }
 };
 
-const getArtist = async (request, h) => {
+const getArtist = (firestore) => async (request, h) => {
   const { artistName } = request.params;
 
-  const collection = db.collection('Artists');
+  const collection = firestore.collection('Artists');
   const querySnapshot = await collection.where('name', '==', artistName).get();
 
   if (querySnapshot.empty) {
@@ -81,13 +74,9 @@ const getArtist = async (request, h) => {
   return h.response(artistData).code(200);
 };
 
-{
-
-}
-
-const getHistory = async () => {
-  try{
-    const historycollection = db.collection('history');
+const getHistory = (firestore) => async () => {
+  try {
+    const historycollection = firestore.collection('history');
     const snapshot = await historycollection.get();
 
     if (snapshot.empty) {
@@ -103,17 +92,14 @@ const getHistory = async () => {
     });
 
     return data;
-
-    } catch (error) {
-      throw new InputError(
-        `Failed to fetch prediction history: ${error.message}`
-      );
-    }
+  } catch (error) {
+    throw new Error(`Failed to fetch prediction history: ${error.message}`);
+  }
 };
 
-module.exports(
-  registerHandler,
-  loginHandler,
-  getArtist,
-  getHistory
-)
+module.exports = (firestore) => ({
+  registerHandler: registerHandler(firestore),
+  loginHandler: loginHandler(firestore),
+  getArtist: getArtist(firestore),
+  getHistory: getHistory(firestore),
+});

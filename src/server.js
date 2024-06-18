@@ -1,17 +1,17 @@
 const Hapi = require('@hapi/hapi');
-const admin = require('firebase-admin');
 const dotenv = require('dotenv');
 const routes = require('./routes');
 const { validateToken } = require('./middleware');
+const { Firestore } = require('@google-cloud/firestore');
 
 dotenv.config();
 
-const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT);
-const JWT_SECRET = process.env.JWT_SECRET;
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+const firestore = new Firestore({
+  projectId: process.env.PROJECT_ID,
+  keyFilename: process.env.FIRESTORE_KEY_FILE_PATH,
 });
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const init = async () => {
   const server = Hapi.server({
@@ -23,13 +23,13 @@ const init = async () => {
 
   server.auth.strategy('jwt', 'jwt', {
     key: JWT_SECRET,
-    validate: validateToken,
+    validate: validateToken(firestore),
     verifyOptions: { algorithms: ['HS256'] },
   });
 
   server.auth.default('jwt');
 
-  server.route(routes);
+  server.route(routes(firestore));
 
   await server.start();
   console.log('Server running on %s', server.info.uri);

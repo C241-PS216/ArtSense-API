@@ -7,6 +7,8 @@ const { Storage } = require('@google-cloud/storage');
 
 dotenv.config();
 
+const JWT_SECRET = process.env.JWT_SECRET
+
 const firestore = new Firestore({
   projectId: process.env.PROJECT_ID,
   keyFilename: process.env.FIRESTORE_KEYFILE

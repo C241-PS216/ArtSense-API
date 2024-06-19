@@ -15,14 +15,22 @@ const nanoid = async () => {
 
 const registerHandler = (firestore) => async (request, h) => {
   try {
+    console.log("1");
     const { username, password } = request.payload;
+    console.log("2");
     const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+    console.log('3');
     const userId = await nanoid();
+        console.log('4');
 
     const userRef = firestore.collection('users').doc(userId);
+        console.log('5');
+
     await userRef.set({ username, password: hashedPassword });
+    console.log('6');
 
     return h.response({ userId, username }).code(201);
+    
   } catch (error) {
     console.error('Error registering user:', error);
     return h.response({ error: 'Failed to register user' }).code(500);
@@ -143,7 +151,7 @@ const inferImage = async (storage, imageUrl) => {
   }
 };
 
-const uploadHandler = (storage, firestore, inferImage) => async (request, h) => {
+const uploadHandler = (storage, firestore) => async (request, h) => {
   try {
     const { file } = request.payload;
     const { createReadStream, filename } = file;

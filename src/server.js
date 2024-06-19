@@ -11,7 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET
 
 const firestore = new Firestore({
   projectId: process.env.PROJECT_ID,
-  keyFilename: process.env.FIRESTORE_KEYFILE
+  keyFilename: process.env.FIRESTORE_KEY_FILE_PATH
 });
 
 const storage = new Storage({
@@ -28,6 +28,8 @@ const init = async () => {
     },
   });
 
+  await server.register(require('@hapi/jwt'));
+
   server.auth.strategy('jwt', 'jwt', {
     keys: JWT_SECRET,
     validate: validateToken(firestore),
@@ -41,8 +43,9 @@ const init = async () => {
   });
 
   server.auth.default('jwt');
-
+  console.log("1");
   server.route(routes(firestore, storage));
+  console.log("2");
 
   await server.start();
   console.log('Server running on %s', server.info.uri);

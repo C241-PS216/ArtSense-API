@@ -48,7 +48,7 @@ const routes = (firestore, storage) => [
   {
     method: 'POST',
     path: '/upload',
-    handler: uploadHandler(storage, firestore, inferImage),
+    handler: uploadHandler(storage, firestore),
     options: {
       payload: {
         output: 'stream',

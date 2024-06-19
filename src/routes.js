@@ -1,8 +1,7 @@
 const Joi = require('@hapi/joi');
+const { registerHandler, loginHandler, getArtist, getHistory, uploadHandler } = require('./handlers');
 
-const { registerHandler, loginHandler, getArtist, getHistory } = require('./handlers');
-
-const routes = (firestore) => [
+const routes = (firestore, storage) => [
   {
     method: 'POST',
     path: '/register',
@@ -45,6 +44,18 @@ const routes = (firestore) => [
     method: 'GET',
     path: '/history',
     handler: getHistory(firestore),
+  },
+  {
+    method: 'POST',
+    path: '/upload',
+    handler: uploadHandler(storage, firestore, inferImage),
+    options: {
+      payload: {
+        output: 'stream',
+        allow: 'multipart/form-data',
+        maxBytes: 10 * 1024 * 1024, // 10 MB limit
+      },
+    },
   },
 ];
 

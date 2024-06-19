@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { nanoid } = require('nanoid');
+const { nanoid } = import('nanoid');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS);
@@ -97,9 +97,9 @@ const getHistory = (firestore) => async () => {
   }
 };
 
-module.exports = (firestore) => ({
-  registerHandler: registerHandler(firestore),
-  loginHandler: loginHandler(firestore),
-  getArtist: getArtist(firestore),
-  getHistory: getHistory(firestore),
-});
+module.exports = {
+  registerHandler,
+  loginHandler,
+  getArtist,
+  getHistory,
+}

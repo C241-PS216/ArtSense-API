@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "src/server.js",
   "scripts": {
+    "start": "node src/server.js",
     "test": "nodemon src/server.js"
   },
   "author": "",
@@ -12,6 +13,7 @@
     "@google-cloud/firestore": "^7.8.0",
     "@hapi/hapi": "^21.3.10",
     "@hapi/joi": "^17.1.1",
+    "@hapi/jwt": "^3.2.0",
     "bcrypt": "^5.1.1",
     "dotenv": "^16.4.5",
     "firebase-admin": "^12.1.1",

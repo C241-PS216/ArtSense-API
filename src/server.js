@@ -27,11 +27,15 @@ const init = async () => {
   });
 
   server.auth.strategy('jwt', 'jwt', {
-    key: process.env.JWT_SECRET,
+    keys: JWT_SECRET,
     validate: validateToken(firestore),
-    verifyOptions: {
-      algorithms: ['HS256'],
+    verify: {
+      // Verify configuration block
+      aud: false, // Disable audience validation (or specify the audience if needed)
+      iss: false, // Disable issuer validation (or specify the issuer if needed)
+      sub: false, // Disable subject validation (or specify the subject if needed)
     },
+    // verifyOptions: { algorithms: ['HS256'] },
   });
 
   server.auth.default('jwt');

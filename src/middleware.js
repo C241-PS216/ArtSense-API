@@ -6,8 +6,8 @@ const validateToken = (firestore) => async (decoded, request, h) => {
       return { isValid: false };
     }
 
-    const usersRef = firestore.collection('users');
-    const snapshot = await usersRef.where('token', '==', token).get();
+    const tokensRef = firestore.collection('token');
+    const snapshot = await tokensRef.where('token', '==', token).get();
 
     if (snapshot.empty) {
       return { isValid: false };

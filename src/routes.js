@@ -7,6 +7,7 @@ const routes = (firestore, storage) => [
     path: '/register',
     handler: registerHandler(firestore),
     options: {
+      auth: false,  // No authentication required for registration
       validate: {
         payload: Joi.object({
           username: Joi.string().required(),
@@ -20,6 +21,7 @@ const routes = (firestore, storage) => [
     path: '/login',
     handler: loginHandler(firestore),
     options: {
+      auth: false,  // No authentication required for login
       validate: {
         payload: Joi.object({
           username: Joi.string().required(),

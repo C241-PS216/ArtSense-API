@@ -7,7 +7,7 @@ const { Storage } = require('@google-cloud/storage');
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const firestore = new Firestore({
   projectId: process.env.PROJECT_ID,
@@ -39,7 +39,6 @@ const init = async () => {
       iss: false, // Disable issuer validation (or specify the issuer if needed)
       sub: false, // Disable subject validation (or specify the subject if needed)
     },
-    // verifyOptions: { algorithms: ['HS256'] },
   });
 
   server.auth.default('jwt');

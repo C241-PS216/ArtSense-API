@@ -15,22 +15,14 @@ const nanoid = async () => {
 
 const registerHandler = (firestore) => async (request, h) => {
   try {
-    console.log("1");
     const { username, password } = request.payload;
-    console.log("2");
     const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-    console.log('3');
     const userId = await nanoid();
-        console.log('4');
 
     const userRef = firestore.collection('users').doc(userId);
-        console.log('5');
-
-    await userRef.set({ username, password: hashedPassword });
-    console.log('6');
+    await userRef.set({ id: userId, username, password: hashedPassword });
 
     return h.response({ userId, username }).code(201);
-    
   } catch (error) {
     console.error('Error registering user:', error);
     return h.response({ error: 'Failed to register user' }).code(500);
@@ -41,10 +33,14 @@ const loginHandler = (firestore) => async (request, h) => {
   try {
     const { username, password } = request.payload;
 
+    console.log('Received login request for username:', username);
+    console.log('JWT_SECRET:', JWT_SECRET); // Log the JWT secret
+
     const usersRef = firestore.collection('users');
     const snapshot = await usersRef.where('username', '==', username).get();
 
     if (snapshot.empty) {
+      console.error('No user found with the username:', username);
       return h.response({ error: 'Invalid username or password' }).code(401);
     }
 
@@ -52,14 +48,15 @@ const loginHandler = (firestore) => async (request, h) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      console.error('Invalid password for username:', username);
       return h.response({ error: 'Invalid username or password' }).code(401);
     }
 
     const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '30d' });
 
-    // Store token in Firestore
-    const userDoc = snapshot.docs[0];
-    await userDoc.ref.update({ token });
+    // Store token in Firestore in the "tokens" collection
+    const tokenRef = firestore.collection('tokens').doc(username);
+    await tokenRef.set({ token });
 
     // Set token as a cookie
     return h
@@ -70,7 +67,7 @@ const loginHandler = (firestore) => async (request, h) => {
       })
       .code(200);
   } catch (error) {
-    console.error('Error logging in:', error);
+    console.error('Error logging in:', error.message);
     return h.response({ error: 'Failed to login' }).code(500);
   }
 };
@@ -78,7 +75,7 @@ const loginHandler = (firestore) => async (request, h) => {
 const getArtist = (firestore) => async (request, h) => {
   const { artistName } = request.params;
 
-  const collection = firestore.collection('Artists');
+  const collection = firestore.collection('artists');
   const querySnapshot = await collection.where('name', '==', artistName).get();
 
   if (querySnapshot.empty) {
@@ -181,7 +178,16 @@ const uploadHandler = (storage, firestore) => async (request, h) => {
     const predictionResult = await inferImage(storage, publicUrl);
     historyResult.data.prediction = predictionResult;
 
-    return h.response({ url: publicUrl, history: historyResult.data }).code(200);
+    // Check if the artist exists in Firestore
+    const artistSnapshot = await firestore.collection('artists').where('name', '==', predictionResult).get();
+    let artistData;
+    if (!artistSnapshot.empty) {
+      artistData = artistSnapshot.docs[0].data();
+    } else {
+      artistData = { name: predictionResult, message: 'We haven’t found the artist’s social media.' };
+    }
+
+    return h.response({ url: publicUrl, history: historyResult.data, artist: artistData }).code(200);
   } catch (error) {
     console.error('Error uploading file:', error);
     return h.response({ error: 'Failed to upload file' }).code(500);

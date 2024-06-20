@@ -4,7 +4,9 @@ const axios = require('axios');
 const sharp = require('sharp');
 const tf = require('@tensorflow/tfjs-node');
 const { Storage } = require('@google-cloud/storage');
+const dotenv = require('dotenv');
 
+dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET;
 const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS);
 

@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const sharp = require('sharp');
@@ -128,32 +129,82 @@ const insertHistory = (firestore) => async (data) => {
   }
 };
 
-const inferImage = async (storage, imageUrl) => {
+const inferImage = async (storage, firestore, imageUrl) => {
   try {
-    const modelBucket = storage.bucket('model-artsense');
-    const modelFile = modelBucket.file('model.h5');
-    const modelFilePath = `/tmp/model.h5`;
+    console.log('Downloading model files...');
+    const modelBucket = storage.bucket('model_artsense');
+    const modelJsonFile = modelBucket.file('model_architecture.json');
+    const modelWeightsFiles = [
+      modelBucket.file('model_layer_0_weights.bin'),
+      modelBucket.file('model_layer_2_weights.bin'),
+      modelBucket.file('model_layer_4_weights.bin')
+    ];
+    
+    const modelJsonFilePath = '/tmp/model_architecture.json';
+    const modelWeightsFilePaths = [
+      '/tmp/model_layer_0_weights.bin',
+      '/tmp/model_layer_2_weights.bin',
+      '/tmp/model_layer_4_weights.bin'
+    ];
 
-    await modelFile.download({ destination: modelFilePath });
+    // Download the model JSON file
+    await modelJsonFile.download({ destination: modelJsonFilePath });
+    console.log('Model JSON file downloaded to', modelJsonFilePath);
 
-    const model = await tf.loadLayersModel(`file://${modelFilePath}`);
+    // Download the model weights files
+    await Promise.all(modelWeightsFiles.map((file, index) => file.download({ destination: modelWeightsFilePaths[index] })));
+    console.log('Model weights files downloaded to', modelWeightsFilePaths);
 
+    // Check if the files exist and have content
+    if (!fs.existsSync(modelJsonFilePath) || fs.statSync(modelJsonFilePath).size === 0) {
+      throw new Error('Model JSON file is missing or empty');
+    }
+
+    for (const weightsFilePath of modelWeightsFilePaths) {
+      if (!fs.existsSync(weightsFilePath) || fs.statSync(weightsFilePath).size === 0) {
+        throw new Error('One or more model weights files are missing or empty');
+      }
+    }
+
+    console.log('Loading TensorFlow model...');
+    const model = await tf.loadLayersModel(`file://${modelJsonFilePath}`);
+    console.log('Model loaded successfully');
+
+    // Fetch the image from the URL and preprocess it
     const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(imageResponse.data, 'binary');
-
     const image = await sharp(imageBuffer).resize({ width: 224, height: 224 }).toBuffer();
     const tensor = tf.node.decodeImage(image).expandDims(0).toFloat().div(tf.scalar(255.0));
 
+    // Make a prediction
     const prediction = model.predict(tensor);
     const predictedIndex = prediction.argMax(-1).dataSync()[0];
-    const artistNames = ['shigure ui', 'Artist2', 'Artist3', 'Artist4'];
 
-    return artistNames[predictedIndex];
+    // Fetch artist names from Firestore
+    const artistSnapshot = await firestore.collection('artists').get();
+    const artistNames = artistSnapshot.docs.map(doc => doc.data().nama);
+    const artistName = artistNames[predictedIndex];
+
+    // Fetch artist data
+    const artistDoc = artistSnapshot.docs.find(doc => doc.data().nama === artistName);
+    let artistData;
+    if (artistDoc) {
+      artistData = artistDoc.data();
+    } else {
+      artistData = {
+        nama: artistName,
+        message: `We haven’t found the artist’s social media. The artist is: ${artistName}`,
+      };
+    }
+
+    return artistData;
   } catch (error) {
     console.error('Error in image inference:', error);
     throw new Error('Failed to infer image');
   }
 };
+
+
 
 const uploadHandler = (storage, firestore) => async (request, h) => {
   try {
@@ -166,7 +217,9 @@ const uploadHandler = (storage, firestore) => async (request, h) => {
       throw new Error('Invalid file upload. File is missing or not a stream.');
     }
 
-    const filename = nanoid(); // Generate a unique filename
+    const originalFilename = file.hapi.filename;
+    const fileExtension = originalFilename.split('.').pop();
+    const filename = `${await nanoid()}.${fileExtension}`; // Generate a unique filename with extension
 
     const bucket = storage.bucket('image-store-as');
     const fileUpload = bucket.file(filename);
@@ -174,39 +227,33 @@ const uploadHandler = (storage, firestore) => async (request, h) => {
 
     await new Promise((resolve, reject) => {
       stream
-        .pipe(fileUpload.createWriteStream())
-        .on('error', reject)
+        .pipe(fileUpload.createWriteStream({
+          metadata: {
+            contentType: file.hapi.headers['content-type'], // Set the content type
+          },
+        }))
+        .on('error', (err) => {
+          console.error('Stream error:', err);
+          reject(err);
+        })
         .on('finish', resolve);
     });
 
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
     console.log('File uploaded successfully. Public URL:', publicUrl);
 
+    const artistData = await inferImage(storage, firestore, publicUrl);
+
+    // Insert history into Firestore
     const historyData = {
-      imageUrl: publicUrl,
+      gambar: publicUrl,
+      result: artistData.nama,
       timestamp: new Date(),
     };
 
     const historyResult = await insertHistory(firestore)(historyData);
     if (!historyResult.success) {
       throw new Error(historyResult.error);
-    }
-
-    const predictionResult = await inferImage(storage, publicUrl);
-    historyResult.data.prediction = predictionResult;
-
-    const artistSnapshot = await firestore
-      .collection('artists')
-      .where('name', '==', predictionResult)
-      .get();
-    let artistData;
-    if (!artistSnapshot.empty) {
-      artistData = artistSnapshot.docs[0].data();
-    } else {
-      artistData = {
-        name: predictionResult,
-        message: 'We haven’t found the artist’s social media.',
-      };
     }
 
     return h
@@ -221,6 +268,7 @@ const uploadHandler = (storage, firestore) => async (request, h) => {
     return h.response({ error: 'Failed to upload file' }).code(500);
   }
 };
+
 
 const getProfile = (firestore) => async (request, h) => {
   const { userid } = request.params;

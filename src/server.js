@@ -34,17 +34,16 @@ const init = async () => {
     keys: JWT_SECRET,
     validate: validateToken(firestore),
     verify: {
-      // Verify configuration block
-      aud: false, // Disable audience validation (or specify the audience if needed)
-      iss: false, // Disable issuer validation (or specify the issuer if needed)
-      sub: false, // Disable subject validation (or specify the subject if needed)
+      aud: false,
+      iss: false,
+      sub: false,
     },
   });
 
   server.auth.default('jwt');
-  console.log("1");
+  console.log('1');
   server.route(routes(firestore, storage));
-  console.log("2");
+  console.log('2');
 
   await server.start();
   console.log('Server running on %s', server.info.uri);

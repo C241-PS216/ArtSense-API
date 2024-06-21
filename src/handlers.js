@@ -62,7 +62,12 @@ const loginHandler = (firestore) => async (request, h) => {
 
     // Set token as a cookie
     return h
-      .response({ message: 'Login successful' })
+      .response({ 
+        message: 'Login successful',
+        userid: user.id,
+        username: user.username,
+        token: token,
+      })
       .state('token', token, {
         isHttpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000,
@@ -78,7 +83,7 @@ const getArtist = (firestore) => async (request, h) => {
   const { artistName } = request.params;
 
   const collection = firestore.collection('artists');
-  const querySnapshot = await collection.where('name', '==', artistName).get();
+  const querySnapshot = await collection.where('nama', '==', artistName).get();
 
   if (querySnapshot.empty) {
     return h.response({ error: 'Artist not found' }).code(404);
@@ -152,20 +157,30 @@ const inferImage = async (storage, imageUrl) => {
 
 const uploadHandler = (storage, firestore) => async (request, h) => {
   try {
+    console.log('Upload handler is running');
+
     const { file } = request.payload;
-    const { createReadStream, filename } = file;
+    console.log('File payload:', file);
+
+    if (!file || typeof file.pipe !== 'function') {
+      throw new Error('Invalid file upload. File is missing or not a stream.');
+    }
+
+    const filename = nanoid(); // Generate a unique filename
 
     const bucket = storage.bucket('image-store-as');
     const fileUpload = bucket.file(filename);
-    const stream = createReadStream();
+    const stream = file; // Directly use the file stream
 
     await new Promise((resolve, reject) => {
-      stream.pipe(fileUpload.createWriteStream())
+      stream
+        .pipe(fileUpload.createWriteStream())
         .on('error', reject)
         .on('finish', resolve);
     });
 
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+    console.log('File uploaded successfully. Public URL:', publicUrl);
 
     const historyData = {
       imageUrl: publicUrl,
@@ -180,20 +195,43 @@ const uploadHandler = (storage, firestore) => async (request, h) => {
     const predictionResult = await inferImage(storage, publicUrl);
     historyResult.data.prediction = predictionResult;
 
-    // Check if the artist exists in Firestore
-    const artistSnapshot = await firestore.collection('artists').where('name', '==', predictionResult).get();
+    const artistSnapshot = await firestore
+      .collection('artists')
+      .where('name', '==', predictionResult)
+      .get();
     let artistData;
     if (!artistSnapshot.empty) {
       artistData = artistSnapshot.docs[0].data();
     } else {
-      artistData = { name: predictionResult, message: 'We haven’t found the artist’s social media.' };
+      artistData = {
+        name: predictionResult,
+        message: 'We haven’t found the artist’s social media.',
+      };
     }
 
-    return h.response({ url: publicUrl, history: historyResult.data, artist: artistData }).code(200);
+    return h
+      .response({
+        url: publicUrl,
+        history: historyResult.data,
+        artist: artistData,
+      })
+      .code(200);
   } catch (error) {
     console.error('Error uploading file:', error);
     return h.response({ error: 'Failed to upload file' }).code(500);
   }
+};
+
+const getProfile = (firestore) => async (request, h) => {
+  const { userid } = request.params;
+  const usersRef = firestore.collection('users');
+  const snapshot = await usersRef.where('id', '==', userid).get();
+  const user = snapshot.docs[0].data();
+  return h.response({ 
+    message: 'You are authenticated',
+    id: user.id,
+    username: user.username
+  }).code(200);
 };
 
 module.exports = {
@@ -204,4 +242,5 @@ module.exports = {
   insertHistory,
   uploadHandler,
   inferImage,
+  getProfile,
 };

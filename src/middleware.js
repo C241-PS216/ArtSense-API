@@ -1,12 +1,17 @@
 const validateToken = (firestore) => async (decoded, request, h) => {
   try {
-    const token = request.state.token;
+    const authorization = request.headers.authorization;
+    if (!authorization) {
+      return { isValid: false };
+    }
+
+    const token = authorization.split(' ')[1]; // Extract the token part from "Bearer <token>"
 
     if (!token) {
       return { isValid: false };
     }
 
-    const tokensRef = firestore.collection('token');
+    const tokensRef = firestore.collection('tokens');
     const snapshot = await tokensRef.where('token', '==', token).get();
 
     if (snapshot.empty) {

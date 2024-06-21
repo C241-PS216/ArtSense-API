@@ -1,5 +1,5 @@
 const Joi = require('@hapi/joi');
-const { registerHandler, loginHandler, getArtist, getHistory, uploadHandler } = require('./handlers');
+const { registerHandler, loginHandler, getArtist, getHistory, uploadHandler, getProfile } = require('./handlers');
 
 const routes = (firestore, storage) => [
   {
@@ -32,10 +32,8 @@ const routes = (firestore, storage) => [
   },
   {
     method: 'GET',
-    path: '/profile',
-    handler: (request, h) => {
-      return h.response({ message: 'You are authenticated' }).code(200);
-    },
+    path: '/profile/{userid}',
+    handler: getProfile(firestore),
   },
   {
     method: 'GET',
@@ -55,8 +53,10 @@ const routes = (firestore, storage) => [
       payload: {
         output: 'stream',
         allow: 'multipart/form-data',
-        maxBytes: 10 * 1024 * 1024, // 10 MB limit
+        maxBytes: 10 * 10240 * 10240, // 10 MB limit
+        multipart: true,
       },
+    auth: 'jwt'
     },
   },
 ];

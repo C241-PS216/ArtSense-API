@@ -164,8 +164,7 @@ const uploadHandler = (storage, firestore) => async (request, h) => {
     console.log('File uploaded successfully. Public URL:', publicUrl);
 
     const model = request.server.app.model; // Get the model from the server context
-    const artistSnapshot = await firestore.collection('artists').get(); // Fetch artist data from Firestore
-    const artistData = await inferImage(publicUrl, model, artistSnapshot);
+    const artistData = await inferImage(publicUrl, model);
 
     // Insert history into Firestore
     const historyData = {
@@ -191,8 +190,6 @@ const uploadHandler = (storage, firestore) => async (request, h) => {
     return h.response({ error: 'Failed to upload file' }).code(500);
   }
 };
-
-
 
 
 const getProfile = (firestore) => async (request, h) => {

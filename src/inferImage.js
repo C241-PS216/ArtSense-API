@@ -2,7 +2,7 @@ const tf = require('@tensorflow/tfjs-node');
 const axios = require('axios');
 const sharp = require('sharp');
 
-async function inferImage(imageUrl, model, artistSnapshot) {
+async function inferImage(imageUrl, model) {
   try {
     console.log('Downloading image from URL:', imageUrl);
     const imageResponse = await axios.get(imageUrl, {
@@ -24,19 +24,16 @@ async function inferImage(imageUrl, model, artistSnapshot) {
 
     console.log('Prediction result:', prediction);
 
-    const artistName = prediction.argMax(-1).dataSync()[0];
-    const artistDoc = artistSnapshot.docs.find(
-      (doc) => doc.data().nama === artistName
-    );
-    let artistData;
-    if (artistDoc) {
-      artistData = artistDoc.data();
-    } else {
-      artistData = {
-        nama: artistName,
-        message: `We haven’t found the artist’s social media. The artist is: ${artistName}`,
-      };
-    }
+    const artistIndex = prediction.argMax(-1).dataSync()[0];
+    
+    const artistMapping = ["CORE", "Fuchi", "Kamepasta", "Yohki", "Neg", "Kouki Haru", "Re°", "Nine", "shigure ui", "sia"];
+
+    const artistName = artistMapping[artistIndex] || "Unknown Artist";
+    
+    const artistData = {
+      nama: artistName,
+      message: `The artist is: ${artistName}`,
+    };
 
     return artistData;
   } catch (error) {

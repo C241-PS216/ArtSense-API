@@ -1,5 +1,5 @@
 node_modules/
 credentials.json
-.env
+\.env
 bucket-viewer.json
 firestore-admin.json

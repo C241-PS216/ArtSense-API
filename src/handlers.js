@@ -1,11 +1,10 @@
 const bcrypt = require('bcrypt');
-const fs = require('fs');
 const jwt = require('jsonwebtoken');
-const axios = require('axios');
-const sharp = require('sharp');
-const tf = require('@tensorflow/tfjs-node');
-const { Storage } = require('@google-cloud/storage');
 const dotenv = require('dotenv');
+const inferImage = require('./inferImage');
+const tf = require('@tensorflow/tfjs-node');
+const loadModel = require('./loadModel');
+
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -37,7 +36,6 @@ const loginHandler = (firestore) => async (request, h) => {
     const { username, password } = request.payload;
 
     console.log('Received login request for username:', username);
-    console.log('JWT_SECRET:', JWT_SECRET); // Log the JWT secret
 
     const usersRef = firestore.collection('users');
     const snapshot = await usersRef.where('username', '==', username).get();
@@ -129,83 +127,6 @@ const insertHistory = (firestore) => async (data) => {
   }
 };
 
-const inferImage = async (storage, firestore, imageUrl) => {
-  try {
-    console.log('Downloading model files...');
-    const modelBucket = storage.bucket('model_artsense');
-    const modelJsonFile = modelBucket.file('model_architecture.json');
-    const modelWeightsFiles = [
-      modelBucket.file('model_layer_0_weights.bin'),
-      modelBucket.file('model_layer_2_weights.bin'),
-      modelBucket.file('model_layer_4_weights.bin')
-    ];
-    
-    const modelJsonFilePath = '/tmp/model_architecture.json';
-    const modelWeightsFilePaths = [
-      '/tmp/model_layer_0_weights.bin',
-      '/tmp/model_layer_2_weights.bin',
-      '/tmp/model_layer_4_weights.bin'
-    ];
-
-    // Download the model JSON file
-    await modelJsonFile.download({ destination: modelJsonFilePath });
-    console.log('Model JSON file downloaded to', modelJsonFilePath);
-
-    // Download the model weights files
-    await Promise.all(modelWeightsFiles.map((file, index) => file.download({ destination: modelWeightsFilePaths[index] })));
-    console.log('Model weights files downloaded to', modelWeightsFilePaths);
-
-    // Check if the files exist and have content
-    if (!fs.existsSync(modelJsonFilePath) || fs.statSync(modelJsonFilePath).size === 0) {
-      throw new Error('Model JSON file is missing or empty');
-    }
-
-    for (const weightsFilePath of modelWeightsFilePaths) {
-      if (!fs.existsSync(weightsFilePath) || fs.statSync(weightsFilePath).size === 0) {
-        throw new Error('One or more model weights files are missing or empty');
-      }
-    }
-
-    console.log('Loading TensorFlow model...');
-    const model = await tf.loadLayersModel(`file://${modelJsonFilePath}`);
-    console.log('Model loaded successfully');
-
-    // Fetch the image from the URL and preprocess it
-    const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-    const imageBuffer = Buffer.from(imageResponse.data, 'binary');
-    const image = await sharp(imageBuffer).resize({ width: 224, height: 224 }).toBuffer();
-    const tensor = tf.node.decodeImage(image).expandDims(0).toFloat().div(tf.scalar(255.0));
-
-    // Make a prediction
-    const prediction = model.predict(tensor);
-    const predictedIndex = prediction.argMax(-1).dataSync()[0];
-
-    // Fetch artist names from Firestore
-    const artistSnapshot = await firestore.collection('artists').get();
-    const artistNames = artistSnapshot.docs.map(doc => doc.data().nama);
-    const artistName = artistNames[predictedIndex];
-
-    // Fetch artist data
-    const artistDoc = artistSnapshot.docs.find(doc => doc.data().nama === artistName);
-    let artistData;
-    if (artistDoc) {
-      artistData = artistDoc.data();
-    } else {
-      artistData = {
-        nama: artistName,
-        message: `We haven’t found the artist’s social media. The artist is: ${artistName}`,
-      };
-    }
-
-    return artistData;
-  } catch (error) {
-    console.error('Error in image inference:', error);
-    throw new Error('Failed to infer image');
-  }
-};
-
-
-
 const uploadHandler = (storage, firestore) => async (request, h) => {
   try {
     console.log('Upload handler is running');
@@ -242,7 +163,8 @@ const uploadHandler = (storage, firestore) => async (request, h) => {
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
     console.log('File uploaded successfully. Public URL:', publicUrl);
 
-    const artistData = await inferImage(storage, firestore, publicUrl);
+    const model = loadModel();
+    const artistData = await inferImage(publicUrl, model);
 
     // Insert history into Firestore
     const historyData = {
@@ -289,6 +211,5 @@ module.exports = {
   getHistory,
   insertHistory,
   uploadHandler,
-  inferImage,
   getProfile,
 };

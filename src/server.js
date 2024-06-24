@@ -4,6 +4,8 @@ const routes = require('./routes');
 const { validateToken } = require('./middleware');
 const { Firestore } = require('@google-cloud/firestore');
 const { Storage } = require('@google-cloud/storage');
+const loadModel = require('./loadModel');
+
 
 dotenv.config();
 
@@ -28,6 +30,9 @@ const init = async () => {
     },
   });
 
+  const model = await loadModel();
+  server.app.model = model;
+
   await server.register(require('@hapi/jwt'));
 
   server.auth.strategy('jwt', 'jwt', {
@@ -41,9 +46,7 @@ const init = async () => {
   });
 
   server.auth.default('jwt');
-  console.log('1');
   server.route(routes(firestore, storage));
-  console.log('2');
 
   await server.start();
   console.log('Server running on %s', server.info.uri);

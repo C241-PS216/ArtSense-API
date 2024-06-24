@@ -2,8 +2,9 @@ const tf = require('@tensorflow/tfjs-node');
 const axios = require('axios');
 const sharp = require('sharp');
 
-async function inferImage(imageUrl, model){
+async function inferImage(imageUrl, model, artistSnapshot) {
   try {
+    console.log('Downloading image from URL:', imageUrl);
     const imageResponse = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
     });
@@ -11,16 +12,19 @@ async function inferImage(imageUrl, model){
     const image = await sharp(imageBuffer)
       .resize({ width: 224, height: 224 })
       .toBuffer();
+
     const tensor = tf.node
       .decodeImage(image)
       .expandDims(0)
       .toFloat()
       .div(tf.scalar(255.0));
 
-    // Make a prediction
+    console.log('Making a prediction');
     const prediction = model.predict(tensor);
 
-    // Fetch artist data
+    console.log('Prediction result:', prediction);
+
+    const artistName = prediction.argMax(-1).dataSync()[0];
     const artistDoc = artistSnapshot.docs.find(
       (doc) => doc.data().nama === artistName
     );
@@ -39,6 +43,6 @@ async function inferImage(imageUrl, model){
     console.error('Error in image inference:', error);
     throw new Error('Failed to infer image');
   }
-};
+}
 
 module.exports = inferImage;

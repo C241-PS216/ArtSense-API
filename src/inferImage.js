@@ -32,7 +32,6 @@ async function inferImage(imageUrl, model) {
     
     const artistData = {
       nama: artistName,
-      message: `The artist is: ${artistName}`,
     };
 
     return artistData;
